@@ -8,56 +8,64 @@ import (
 
 const configFileName = ".gatorconfig.json"
 
-// Config is the structure that represents the data in the JSON file
 type Config struct {
-	DBURL          string `json:"db_url"`
-	CurrentUserName string `json:"current_user_name,omitempty"`
+	DBURL           string `json:"db_url"`
+	CurrentUserName string `json:"current_user_name"`
 }
 
-// getConfigFilePath returns the full path of the config file
+func (cfg *Config) SetUser(userName string) error {
+	cfg.CurrentUserName = userName
+	return write(*cfg)
+}
+
+func Read() (Config, error) {
+	fullPath, err := getConfigFilePath()
+	if err != nil {
+		return Config{}, err
+	}
+
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return Config{}, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	cfg := Config{}
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		return Config{}, err
+	}
+
+	return cfg, nil
+}
+
 func getConfigFilePath() (string, error) {
-	homeDir, err := os.UserHomeDir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(homeDir, configFileName), nil
+	fullPath := filepath.Join(home, configFileName)
+	return fullPath, nil
 }
 
-// Read reads the config file and converts it to a Config struct
-func Read() (Config, error) {
-	var cfg Config
-
-	configPath, err := getConfigFilePath()
-	if err != nil {
-		return cfg, err
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return cfg, err
-	}
-
-	err = json.Unmarshal(data, &cfg)
-	return cfg, err
-}
-
-// write writes the Config struct to the config file
 func write(cfg Config) error {
-	configPath, err := getConfigFilePath()
+	fullPath, err := getConfigFilePath()
 	if err != nil {
 		return err
 	}
 
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	file, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(cfg)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return nil
 }
-
-// SetUser sets the current user name and saves it to the config file
-func (c *Config) SetUser(username string) error {
-	c.CurrentUserName = username
-	return write(*c)
-} 

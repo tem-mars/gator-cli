@@ -1,31 +1,41 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 
 	"github.com/tem-mars/gator-cli/internal/config"
 )
 
+type state struct {
+	cfg *config.Config
+}
+
 func main() {
-	// read config
 	cfg, err := config.Read()
 	if err != nil {
-		log.Fatalf("cannot read config file: %v", err)
+		log.Fatalf("error reading config: %v", err)
 	}
-	fmt.Println("default config:", cfg)
 
-	// set user name and save
-	err = cfg.SetUser("your name") // change to your name
-	if err != nil {
-		log.Fatalf("cannot save config file: %v", err)
+	programState := &state{
+		cfg: &cfg,
 	}
-	fmt.Println("saved user name")
 
-	// read config again
-	updatedCfg, err := config.Read()
-	if err != nil {
-		log.Fatalf("cannot read updated config file: %v", err)
+	cmds := commands{
+		registeredCommands: make(map[string]func(*state, command) error),
 	}
-	fmt.Println("updated config:", updatedCfg)
+	cmds.register("login", handlerLogin)
+
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: cli <command> [args...]")
+		return
+	}
+
+	cmdName := os.Args[1]
+	cmdArgs := os.Args[2:]
+
+	err = cmds.run(programState, command{Name: cmdName, Args: cmdArgs})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
